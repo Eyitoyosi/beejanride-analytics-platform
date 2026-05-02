@@ -1,0 +1,8 @@
+# # Airflow providers — installed into Airflow pip env with constraints
+# apache-airflow-providers-airbyte
+# apache-airflow-providers-google
+# apache-airflow-providers-smtp
+
+# # dbt — installed into isolated venv at /opt/dbt-env (see Dockerfile)
+# # This isolation is required because dbt-bigquery conflicts with Airflow 2.8.1 deps
+# dbt-bigquery==1.7.8

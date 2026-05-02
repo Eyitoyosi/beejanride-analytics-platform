@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: fct_fraud_monitoring
+    description: >
+      All fraud-suspect trips with categorised fraud indicators.
+      Covers: extreme surge (>10x), duplicate payments, and completed trips
+      with zero successful payments. Powers the Fraud Monitoring Dashboard.
+    config:
+        meta:
+          owner: "fraud-ops@beejanride.com"
+          tags: ["fraud"]
+    columns:
+      - name: trip_id
+        tests: [not_null, unique]
+      - name: fraud_category
+        tests:
+          - accepted_values:
+              values:
+                - 'extreme_surge'
+                - 'duplicate_payment'
+                - 'completed_no_payment'
+                - 'multiple_indicators'
+                - 'other'

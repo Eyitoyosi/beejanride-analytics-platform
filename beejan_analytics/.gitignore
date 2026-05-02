@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+env/
+
+# dbt
+target/
+dbt_packages/
+logs/
+
+# Environment variables
+.env
+
+# MacOS
+.DS_Store
+
+# Airbyte temporary files
+.airbyte/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup

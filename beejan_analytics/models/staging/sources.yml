@@ -1,0 +1,295 @@
+version: 2
+
+sources:
+  - name: beejan_raw
+    description: "Raw source tables ingested via Airbyte from the BeejanRide transactional PostgreSQL database."
+    database: beejanride-analytics
+    schema: beejan_raw
+    config: 
+      tags: ["raw", "airbyte"]
+
+    tables:
+      # ─────────────────────────────────────────
+      # trips_raw
+      # ─────────────────────────────────────────
+      - name: trips_raw
+        description: "All trip records including completed, cancelled, and no-show rides."
+        config:          
+            meta:
+              owner: "data-engineering@beejanride.com"
+            loaded_at_field: updated_at
+            freshness:
+              warn_after: {count: 2, period: hour}
+              error_after: {count: 4, period: hour}
+        columns:
+          - name: trip_id
+            description: "Unique trip identifier."
+            tests:
+              - not_null
+              - unique
+
+          - name: rider_id
+            description: "FK to riders_raw."
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('beejan_raw', 'riders_raw')
+                    field: rider_id
+
+          - name: driver_id
+            description: "FK to drivers_raw."
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('beejan_raw', 'drivers_raw')
+                    field: driver_id
+
+          - name: city_id
+            description: "FK to cities_raw."
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('beejan_raw', 'cities_raw')
+                    field: city_id
+
+          - name: status
+            description: "Trip lifecycle status."
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['completed', 'cancelled', 'no_show']
+
+          - name: payment_method
+            description: "How the rider paid."
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: ['card', 'wallet', 'cash']
+
+          - name: surge_multiplier
+            description: "Surge pricing multiplier applied at trip request time (1.0 = no surge)."
+
+          - name: actual_fare
+            description: "Final fare charged to the rider."
+
+          - name: estimated_fare
+            description: "Fare estimate shown before the trip."
+
+          - name: is_corporate
+            description: "Boolean flag indicating a corporate-account ride."
+            
+          - name: requested_at
+            description: "UTC timestamp when rider requested the trip."
+            tests:
+              - not_null
+
+          - name: created_at
+            description: "Record creation timestamp."
+            
+          - name: updated_at
+            description: "Record last-update timestamp."
+
+      # ─────────────────────────────────────────
+      # drivers_raw
+      # ─────────────────────────────────────────
+      - name: drivers_raw
+        description: "Driver profile and current status information."
+        config:          
+            meta:
+              owner: "data-engineering@beejanride.com"
+            loaded_at_field: updated_at
+            freshness:
+              warn_after: {count: 3, period: hour}
+              error_after: {count: 6, period: hour}
+        columns:
+          - name: driver_id
+            description: "Unique driver identifier."
+            tests:
+              - not_null
+              - unique
+
+          - name: driver_status
+            description: "Current driver lifecycle status."
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['active', 'suspended', 'inactive']
+
+          - name: city_id
+            description: "FK to cities_raw. city the driver is based in."
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('beejan_raw', 'cities_raw')
+                    field: city_id
+
+          - name: rating
+            description: "Average rider rating (1–5)."
+          - name: onboarding_date
+            description: "Date the driver was onboarded."
+          - name: created_at
+            description: "Record creation timestamp."
+          - name: updated_at
+            description: "Record last-update timestamp."
+
+      # ─────────────────────────────────────────
+      # riders_raw
+      # ─────────────────────────────────────────
+      - name: riders_raw
+        description: "Rider profile and acquisition metadata."
+        config:          
+            meta:
+              owner: "data-engineering@beejanride.com"
+            loaded_at_field: created_at
+            freshness:
+              warn_after: {count: 12, period: hour}
+              error_after: {count: 48, period: hour}
+        columns:
+          - name: rider_id
+            description: "Unique rider identifier."
+            tests:
+              - not_null
+              - unique
+          - name: signup_date
+            description: "Date rider created their account."
+            tests:
+              - not_null
+          - name: country
+            description: "Rider's country of registration."
+          - name: referral_code
+            description: "Referral code used during signup (nullable)."
+          - name: created_at
+            description: "Record creation timestamp."
+
+      # ─────────────────────────────────────────
+      # payments_raw
+      # ─────────────────────────────────────────
+      - name: payments_raw
+        description: "Payment attempt records for each trip."
+        config:         
+            meta:
+              owner: "data-engineering@beejanride.com"
+            loaded_at_field: created_at
+            freshness:
+              warn_after: {count: 2, period: hour}
+              error_after: {count: 6, period: hour}
+        columns:
+          - name: payment_id
+            description: "Unique payment identifier."
+            tests:
+              - not_null
+              - unique
+          - name: trip_id
+            description: "FK to trips_raw."
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('beejan_raw', 'trips_raw')
+                    field: trip_id
+          - name: payment_status
+            description: "Outcome of the payment attempt."
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['success', 'failed']
+          - name: payment_provider
+            description: "Payment processor used."
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: ['stripe', 'paypal']
+          - name: amount
+            description: "Amount charged."
+            tests:
+              - not_null
+          - name: fee
+            description: "Processing fee deducted by the payment provider."
+          - name: currency
+            description: "ISO 4217 currency code."
+          - name: created_at
+            description: "Payment attempt timestamp."
+            tests:
+              - not_null
+
+      # ─────────────────────────────────────────
+      # cities_raw
+      # ─────────────────────────────────────────
+      - name: cities_raw
+        description: "BeejanRide operational city metadata."
+        config:
+            meta:
+              owner: "data-engineering@beejanride.com"
+            loaded_at_field: launch_date
+            freshness:
+              warn_after: {count: 24, period: hour}
+              error_after: {count: 72, period: hour}
+        columns:
+          - name: city_id
+            description: "Unique city identifier."
+            tests:
+              - not_null
+              - unique
+          - name: city_name
+            description: "Human-readable city name."
+            tests:
+              - not_null
+          - name: country
+            description: "Country the city is in."
+            tests:
+              - not_null
+          - name: launch_date
+            description: "Date BeejanRide launched in this city."
+
+      # ─────────────────────────────────────────
+      # driver_status_events_raw  (high-volume)
+      # ─────────────────────────────────────────
+      - name: driver_status_events_raw
+        description: >
+          High-volume event log of driver online/offline status changes.
+          Used for activity monitoring and shift-hour calculations.
+        config:         
+            meta:
+              owner: "data-engineering@beejanride.com"
+            loaded_at_field: event_timestamp
+            freshness:
+              warn_after: {count: 1, period: hour}
+              error_after: {count: 6, period: hour}
+        columns:
+          - name: event_id
+            description: "Unique event identifier."
+            tests:
+              - not_null
+              - unique
+          - name: driver_id
+            description: "FK to drivers_raw."
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('beejan_raw', 'drivers_raw')
+                    field: driver_id
+          - name: status
+            description: "Online/offline toggle status."
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['online', 'offline']
+          - name: event_timestamp
+            description: "UTC timestamp of the status change."
+            tests:
+              - not_null
+
+
+
+
+
+        

@@ -1,0 +1,6 @@
+.env
+gcp/
+logs/
+__pycache__/
+*.pyc
+.astro/

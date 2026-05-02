@@ -1,0 +1,114 @@
+version: 2
+
+models:
+  # ────────────────────────────────────────────────
+  # fct_trips
+  # ────────────────────────────────────────────────
+  - name: fct_trips
+    description: >
+      Central fact table for all trip activity. Partitioned by trip_date.
+      Incremental – only processes new/updated partitions on each run.
+    config:
+       meta:
+         owner: "data-engineering@beejanride.com"
+         tags: ["core", "finance", "operations"]
+    columns:
+      - name: fct_trip_sk
+        description: "Surrogate key (SHA-256 hash of trip_id)."
+        tests: [not_null, unique]
+      - name: trip_id
+        description: "Natural trip key."
+        tests: [not_null, unique]
+      - name: trip_status
+        description: "Trip lifecycle status."
+        tests:
+          - accepted_values:
+              values: ['completed', 'cancelled', 'no_show']
+      - name: gross_revenue
+        description: "Actual fare charged."
+        tests:
+          - assert_no_negative_revenue
+      - name: net_revenue
+        description: "Revenue after platform fee and processing fee."
+        tests:
+          - assert_no_negative_revenue
+      - name: trip_duration_minutes
+        description: "Trip duration in minutes (pickup → dropoff)."
+        tests:
+          - assert_positive_trip_duration
+      - name: success_payment_count
+        description: "Number of successful payment attempts for this trip."
+        tests:
+          - assert_completed_trip_has_payment
+      - name: trip_date
+        description: "Calendar date of trip request (partition key)."
+        tests: [not_null]
+
+  # ────────────────────────────────────────────────
+  # dim_drivers
+  # ────────────────────────────────────────────────
+  - name: dim_drivers
+    description: >
+      Driver dimension (current state / SCD Type 1).
+      Use drivers_snapshot for historical change tracking.
+    config:
+        meta:
+          owner: "data-engineering@beejanride.com"
+          tags: ["core", "operations"]
+    columns:
+      - name: driver_id
+        description: "Unique driver identifier (PK)."
+        tests: [not_null, unique]
+      - name: driver_status
+        description: "Current driver status."
+        tests:
+          - accepted_values:
+              values: ['active', 'suspended', 'inactive']
+      - name: driver_tier
+        description: "Performance-based tier (bronze/silver/gold/platinum)."
+        tests:
+          - accepted_values:
+              values: ['bronze', 'silver', 'gold', 'platinum']
+      - name: lifetime_gross_revenue
+        description: "Total gross revenue earned by the driver."
+        tests:
+          - assert_no_negative_revenue
+
+  # ────────────────────────────────────────────────
+  # dim_riders
+  # ────────────────────────────────────────────────
+  - name: dim_riders
+    description: "Rider dimension with LTV and engagement segment."
+    config:
+       meta:
+         owner: "data-engineering@beejanride.com"
+         tags: ["core", "finance"]
+    columns:
+      - name: rider_id
+        description: "Unique rider identifier (PK)."
+        tests: [not_null, unique]
+      - name: rider_segment
+        description: "RFM-based engagement segment."
+        tests:
+          - accepted_values:
+              values: ['champion', 'loyal', 'recent', 'at_risk', 'churned']
+      - name: rider_ltv
+        description: "Lifetime value (net revenue generated)."
+        tests:
+          - assert_no_negative_revenue
+
+  # ────────────────────────────────────────────────
+  # dim_cities
+  # ────────────────────────────────────────────────
+  - name: dim_cities
+    description: "BeejanRide city dimension enriched with trip stats."
+    config:
+       meta:
+         owner: "data-engineering@beejanride.com"
+         tags: ["core", "operations"]
+    columns:
+      - name: city_id
+        description: "Unique city identifier (PK)."
+        tests: [not_null, unique]
+      - name: city_name
+        tests: [not_null]

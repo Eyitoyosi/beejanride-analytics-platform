@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: fct_driver_activity
+    description: >
+      Daily driver activity summary: trips completed, gross/net revenue,
+      online hours, and revenue per online hour. Incremental, partitioned by date.
+      Powers the Driver Leaderboard and Churn Tracking dashboards.
+    config:
+       meta:
+         owner: "analytics@beejanride.com"
+         tags: ["operations"]
+    columns:
+      - name: fct_driver_activity_sk
+        tests: [not_null, unique]
+      - name: gross_revenue
+        tests:
+          - assert_no_negative_revenue

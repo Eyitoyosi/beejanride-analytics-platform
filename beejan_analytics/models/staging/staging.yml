@@ -1,0 +1,219 @@
+version: 2
+
+models:
+  # ─────────────────────────────────────────────────────────────────
+  # stg_trips
+  # ─────────────────────────────────────────────────────────────────
+  - name: stg_trips
+    description: >
+      Deduplicated, type-cast, and renamed trip records from trips_raw.
+      Each row represents one unique trip. Invalid (null) trip_id rows are excluded.
+    config:
+      meta:
+        owner: "data-engineering@beejanride.com"
+      tags: ["staging", "trips"]
+    columns:
+      - name: trip_id
+        description: "Unique trip identifier (PK)."
+        tests: [not_null, unique]
+      - name: rider_id
+        description: "FK to stg_riders."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_riders')
+                field: rider_id
+      - name: driver_id
+        description: "FK to stg_drivers."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_drivers')
+                field: driver_id
+      - name: city_id
+        description: "FK to stg_cities."
+        tests:
+          - not_null
+          - relationships:
+              arguments:  
+                to: ref('stg_cities')
+                field: city_id
+      - name: trip_status
+        description: "Normalised trip lifecycle status."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['completed', 'cancelled', 'no_show']
+      - name: payment_method
+        description: "Normalised payment method."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['card', 'wallet', 'cash']
+      - name: actual_fare
+        description: "Final fare charged. Must not be negative."
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: ">= 0"
+      - name: surge_multiplier
+        description: "Surge applied (1.0 = no surge)."
+      - name: is_corporate
+        description: "True if trip is under a corporate account."
+      - name: requested_at
+        description: "UTC timestamp of trip request."
+        tests: [not_null]
+
+  # ─────────────────────────────────────────────────────────────────
+  # stg_drivers
+  # ─────────────────────────────────────────────────────────────────
+  - name: stg_drivers
+    description: >
+      Deduplicated and type-cast driver profile records.
+      Reflects the most recently updated snapshot of each driver.
+    config:
+      meta:
+        owner: "data-engineering@beejanride.com"
+      tags: ["staging", "drivers"]
+    columns:
+      - name: driver_id
+        description: "Unique driver identifier (PK)."
+        tests: [not_null, unique]
+      - name: driver_status
+        description: "Current lifecycle status of the driver."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['active', 'suspended', 'inactive']
+      - name: city_id
+        description: "City the driver is based in."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_cities')
+                field: city_id
+      - name: rating
+        description: "Average rider-given rating (1–5)."
+      - name: onboarding_date
+        description: "Date driver joined BeejanRide."
+
+  # ─────────────────────────────────────────────────────────────────
+  # stg_riders
+  # ─────────────────────────────────────────────────────────────────
+  - name: stg_riders
+    description: "Deduplicated rider profile and acquisition data."
+    config:
+      meta:
+        owner: "data-engineering@beejanride.com"
+      tags: ["staging", "riders"]
+    columns:
+      - name: rider_id
+        description: "Unique rider identifier (PK)."
+        tests: [not_null, unique]
+      - name: signup_date
+        description: "Date rider created their account."
+        tests: [not_null]
+      - name: country
+        description: "ISO country code (uppercased)."
+      - name: referral_code
+        description: "Referral code used at signup, if any."
+
+  # ─────────────────────────────────────────────────────────────────
+  # stg_payments
+  # ─────────────────────────────────────────────────────────────────
+  - name: stg_payments
+    description: "Deduplicated payment attempt records per trip."
+    config:
+      meta:
+        owner: "data-engineering@beejanride.com"
+      tags: ["staging", "payments", "finance"]
+    columns:
+      - name: payment_id
+        description: "Unique payment identifier (PK)."
+        tests: [not_null, unique]
+      - name: trip_id
+        description: "FK to stg_trips."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_trips')
+                field: trip_id
+      - name: payment_status
+        description: "Outcome of the payment attempt."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['success', 'failed']
+      - name: amount
+        description: "Gross payment amount."
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: ">= 0"
+      - name: processing_fee
+        description: "Fee charged by the payment provider."
+
+  # ─────────────────────────────────────────────────────────────────
+  # stg_cities
+  # ─────────────────────────────────────────────────────────────────
+  - name: stg_cities
+    description: "BeejanRide operational cities."
+    config:
+      meta:
+        owner: "data-engineering@beejanride.com"
+      tags: ["staging", "cities"]
+    columns:
+      - name: city_id
+        description: "Unique city identifier (PK)."
+        tests: [not_null, unique]
+      - name: city_name
+        description: "City display name (title-cased)."
+        tests: [not_null]
+      - name: country
+        description: "Country code (uppercased)."
+        tests: [not_null]
+      - name: launch_date
+        description: "Date BeejanRide launched in this city."
+
+  # ─────────────────────────────────────────────────────────────────
+  # stg_driver_status_events
+  # ─────────────────────────────────────────────────────────────────
+  - name: stg_driver_status_events
+    description: >
+      Incremental model of driver online/offline status change events.
+      Partitioned by event_date for efficient BigQuery querying.
+      Replays the last 1-day partition to handle late-arriving events.
+    config:
+      meta:
+        owner: "data-engineering@beejanride.com"
+      tags: ["staging", "driver_events", "incremental", "operations"]
+    columns:
+      - name: event_id
+        description: "Unique event identifier (PK)."
+        tests: [not_null, unique]
+      - name: driver_id
+        description: "FK to stg_drivers."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_drivers')
+                field: driver_id
+      - name: driver_online_status
+        description: "Normalised online/offline status."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['online', 'offline']
+      - name: event_timestamp
+        description: "UTC timestamp of the status change."
+        tests: [not_null]
+      - name: event_date
+        description: "Calendar date of the event (partition key)."
+        tests: [not_null]

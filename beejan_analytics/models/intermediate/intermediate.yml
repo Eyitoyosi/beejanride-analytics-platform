@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: int_trips_enriched
+    description: >
+      Core enriched trip model joining staging trips with payments, cities,
+      drivers, and riders. Calculates trip_duration_minutes, net_revenue,
+      corporate_trip_flag, surge metrics, and all fraud indicators.
+      Materialised as ephemeral — inlined into downstream mart SQL.
+    config:
+      meta:
+            owner: "data-engineering@beejanride.com"
+      tags: ["intermediate", "trips"]
+
+  - name: int_driver_lifetime_stats
+    description: >
+      Aggregated lifetime performance metrics per driver including total trips,
+      gross/net revenue, churn flag, and last online timestamp.
+    config:
+      meta:
+            owner: "data-engineering@beejanride.com"
+      tags: ["intermediate", "drivers", "operations"]
+
+  - name: int_rider_lifetime_value
+    description: >
+      Rider lifetime value (LTV) calculation and RFM-based segmentation
+      (champion, loyal, recent, at_risk, churned). Used by dim_riders mart.
+    config:
+      meta:
+            owner: "data-engineering@beejanride.com"
+      tags: ["intermediate", "riders", "finance"]

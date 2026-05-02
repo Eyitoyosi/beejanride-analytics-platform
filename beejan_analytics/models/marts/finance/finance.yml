@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: fct_daily_revenue
+    description: >
+      Pre-aggregated daily revenue per city, segmented by trip type (corporate/personal).
+      Powers the Daily Revenue Dashboard and City Profitability Report.
+    config:  
+      meta:
+        owner: "analytics@beejanride.com"
+        tags: ["finance"]
+    columns:
+      - name: fct_daily_revenue_sk
+        tests: [not_null, unique]
+      - name: gross_revenue
+        tests:
+          - assert_no_negative_revenue
+      - name: net_revenue
+        tests:
+          - assert_no_negative_revenue
+
+  - name: fct_payment_reliability
+    description: >
+      Daily payment success/failure metrics per provider and city.
+      Surfaces payment failure rates and revenue leakage from failed payments on completed trips.
+    config:
+      meta:
+        owner: "analytics@beejanride.com"
+        tags: ["finance", "payments"]
+    columns:
+      - name: fct_payment_reliability_sk
+        tests: [not_null, unique]
+      - name: payment_failure_rate_pct
+        description: "Percentage of payment attempts that failed (0–100)."
