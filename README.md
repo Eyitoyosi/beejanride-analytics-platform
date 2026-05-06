@@ -363,7 +363,7 @@ All high-volume fact tables use `insert_overwrite` on date partitions with a 1-d
 
 ## Data Quality
 
-Tests are defined in YAML across all layers. Current state: **41 PASS, 0 WARN, 0 ERROR**.
+Tests are defined in YAML across all layers. 
 
 **Generic tests** — `not_null`, `unique`, `relationships`, `accepted_values` on all primary keys, foreign keys, and enum columns.
 
