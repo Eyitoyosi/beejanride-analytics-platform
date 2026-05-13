@@ -249,11 +249,11 @@ The backfill DAG has `retries=0` — if a full rebuild fails, fix the root cause
 
 ---
 
-### Failed DAG Run
-
-![Failed DAG Run](images/dag_failed.png)
+### Success Email Notification
+![Success Email Notifications](images/dagSuccessImage.png)
 
 ---
+
 
 ### Failure Email Notification
 
