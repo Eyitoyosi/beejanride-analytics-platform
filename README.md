@@ -59,9 +59,7 @@ The platform supports analysis across:
 
 ## Architecture
 
-<!-- Replace the image below with your updated architecture diagram (include Airflow layer) -->
-> 📌 **Place your updated architecture diagram here.**
-> Export from draw.io as `architecture_diagram.png` and save to `images/architecture_diagram.png`
+![Architecture Diagram](images/orchestration_architectural_diagram2.png)
 
 ![Architecture Diagram](images/architecture_diagram.png)
 
